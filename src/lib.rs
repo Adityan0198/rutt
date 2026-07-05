@@ -1,3 +1,5 @@
+use anyhow::{Result, anyhow};
+
 const SIZE: usize = 3;
 
 #[derive(Copy, Clone, Debug)]
@@ -24,6 +26,16 @@ impl MiniBoard {
         Self {
             mboard: [[None; SIZE]; SIZE],
             state: MiniBoardState::Play,
+        }
+    }
+
+    fn play(&mut self, pos: Pos, tile: Tile) -> Result<()> {
+        let Pos(x, y) = pos;
+        if self.mboard[x][y].is_none() {
+            self.mboard[x][y] = Some(tile);
+            Ok(())
+        } else {
+            Err(anyhow!("Invalid Move (Occupied)"))
         }
     }
 
@@ -56,7 +68,7 @@ impl BigBoard {
         }
     }
 
-    fn play(&mut self, board_pos: Pos, pos: Pos, tile: Tile) -> Result<(), i32> {
+    fn play(&mut self, board_pos: Pos, pos: Pos, tile: Tile) -> Result<()> {
         todo!()
     }
 
