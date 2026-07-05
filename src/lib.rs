@@ -8,10 +8,11 @@ enum Tile {
     O,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Pos(usize, usize);
 
 #[derive(Copy, Clone, Debug)]
-enum MiniBoardState {
+enum BoardState {
     Play,
     Win(Tile),
     Tie,
@@ -20,18 +21,18 @@ enum MiniBoardState {
 #[derive(Copy, Clone, Debug)]
 struct MiniBoard {
     mboard: [[Option<Tile>; SIZE]; SIZE],
-    state: MiniBoardState,
+    state: BoardState,
 }
 
 impl MiniBoard {
     fn new() -> Self {
         Self {
             mboard: [[None; SIZE]; SIZE],
-            state: MiniBoardState::Play,
+            state: BoardState::Play,
         }
     }
 
-    fn play(&mut self, pos: Pos, tile: Tile) -> Result<MiniBoardState> {
+    fn play(&mut self, pos: Pos, tile: Tile) -> Result<BoardState> {
         let Pos(x, y) = pos;
         if self.mboard[x][y].is_none() {
             self.mboard[x][y] = Some(tile);
@@ -41,7 +42,7 @@ impl MiniBoard {
         }
     }
 
-    fn update_state(&mut self, tile: Tile) -> MiniBoardState {
+    fn update_state(&mut self, tile: Tile) -> BoardState {
         //Update win/tie state based on last move, returns the state
 
         let mut fwd_diag = 0; //Diag \
@@ -76,9 +77,9 @@ impl MiniBoard {
             || along_x.contains(&SIZE)
             || along_y.contains(&SIZE)
         {
-            self.state = MiniBoardState::Win(tile);
+            self.state = BoardState::Win(tile);
         } else if !any_none {
-            self.state = MiniBoardState::Tie;
+            self.state = BoardState::Tie;
         }
 
         self.state
@@ -107,11 +108,66 @@ impl BigBoard {
         }
     }
 
-    fn play(&mut self, board_pos: Pos, pos: Pos, tile: Tile) -> Result<()> {
-        todo!()
+    fn play(&mut self, board_pos: Pos, pos: Pos, tile: Tile) -> Result<BoardState> {
+        if let Some(valid) = self.playable {
+            if board_pos != valid {
+                return Err(anyhow!("Invalid Move (Board Unplayable)"));
+            }
+        }
+        let Pos(board_x, board_y) = board_pos;
+        let new_state = self.board[board_x][board_y].play(pos, tile)?;
+        if let BoardState::Win(_) = new_state {
+            //Win(player == tile)
+            return Ok(self.check_state(tile));
+        }
+        //Need to check Tie too for new_state return
+        Ok(BoardState::Play)
     }
 
-    fn check_win(&self) -> Tile {
-        todo!()
+    fn check_state(&self, tile: Tile) -> BoardState {
+        let mut fwd_diag = 0; //Diag \
+        let mut bkwd_diag = 0; //Diag /
+        let mut along_y = [0 as usize; SIZE];
+        let mut along_x = [0 as usize; SIZE];
+
+        let mut any_play = false;
+
+        for x in 0..SIZE {
+            for y in 0..SIZE {
+                let entry = match self.board[x][y].state {
+                    BoardState::Play => {
+                        any_play = true;
+                        continue;
+                    }
+                    BoardState::Tie => {
+                        continue;
+                    }
+                    BoardState::Win(entry) => entry,
+                };
+
+                if entry != tile {
+                    continue;
+                }
+                if x == y {
+                    fwd_diag += 1;
+                }
+                if x == (SIZE - 1 - y) {
+                    bkwd_diag += 1
+                }
+                along_y[x] += 1;
+                along_x[y] += 1;
+            }
+        }
+
+        if fwd_diag == SIZE
+            || bkwd_diag == SIZE
+            || along_x.contains(&SIZE)
+            || along_y.contains(&SIZE)
+        {
+            return BoardState::Win(tile);
+        } else if !any_play {
+            return BoardState::Tie;
+        }
+        BoardState::Play
     }
 }
