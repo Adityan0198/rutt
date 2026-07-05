@@ -108,14 +108,22 @@ impl BigBoard {
         }
     }
 
-    fn play(&mut self, board_pos: Pos, pos: Pos, tile: Tile) -> Result<BoardState> {
+    fn play(&mut self, board_pos: Pos, tile_pos: Pos, tile: Tile) -> Result<BoardState> {
         if let Some(valid) = self.playable {
             if board_pos != valid {
                 return Err(anyhow!("Invalid Move (Board Unplayable)"));
             }
         }
+
         let Pos(board_x, board_y) = board_pos;
-        let new_state = self.board[board_x][board_y].play(pos, tile)?;
+        let new_state = self.board[board_x][board_y].play(tile_pos, tile)?;
+
+        let Pos(tile_x, tile_y) = tile_pos;
+        self.playable = match self.board[tile_x][tile_y].state {
+            BoardState::Play => Some(tile_pos),
+            _ => None,
+        };
+
         if let BoardState::Win(_) = new_state {
             //Win(player == tile)
             return Ok(self.check_state(tile));
