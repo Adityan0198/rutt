@@ -11,7 +11,7 @@ enum Tile {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Pos(usize, usize);
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum BoardState {
     Play,
     Win(Tile),
@@ -87,7 +87,7 @@ impl MiniBoard {
 }
 
 struct BigBoard {
-    board: [[MiniBoard; SIZE]; SIZE],
+    boards: [[MiniBoard; SIZE]; SIZE],
     playable: Option<Pos>, //If None, can play anywhere
 }
 
@@ -103,7 +103,7 @@ impl Pos {
 impl BigBoard {
     fn new() -> Self {
         Self {
-            board: [[MiniBoard::new(); SIZE]; SIZE],
+            boards: [[MiniBoard::new(); SIZE]; SIZE],
             playable: None,
         }
     }
@@ -116,20 +116,32 @@ impl BigBoard {
         }
 
         let Pos(board_x, board_y) = board_pos;
-        let new_state = self.board[board_x][board_y].play(tile_pos, tile)?;
+        let new_state = self.boards[board_x][board_y].play(tile_pos, tile)?;
 
         let Pos(tile_x, tile_y) = tile_pos;
-        self.playable = match self.board[tile_x][tile_y].state {
+        self.playable = match self.boards[tile_x][tile_y].state {
             BoardState::Play => Some(tile_pos),
             _ => None,
         };
 
-        if let BoardState::Win(_) = new_state {
-            //Win(player == tile)
-            return Ok(self.check_state(tile));
-        }
-        //Need to check Tie too for new_state return
-        Ok(BoardState::Play)
+        Ok(match new_state {
+            BoardState::Win(_) => self.check_state(tile),
+            BoardState::Tie => {
+                if self.is_playable() {
+                    BoardState::Play
+                } else {
+                    BoardState::Tie
+                }
+            }
+            BoardState::Play => BoardState::Play,
+        })
+    }
+
+    fn is_playable(&self) -> bool {
+        self.boards
+            .into_iter()
+            .flatten()
+            .any(|board| board.state == BoardState::Play)
     }
 
     fn check_state(&self, tile: Tile) -> BoardState {
@@ -142,7 +154,7 @@ impl BigBoard {
 
         for x in 0..SIZE {
             for y in 0..SIZE {
-                let entry = match self.board[x][y].state {
+                let entry = match self.boards[x][y].state {
                     BoardState::Play => {
                         any_play = true;
                         continue;
