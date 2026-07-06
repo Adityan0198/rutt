@@ -24,6 +24,15 @@ struct MiniBoard {
     state: BoardState,
 }
 
+impl Tile {
+    fn next(self) -> Self {
+        match self {
+            Self::O => Self::X,
+            Self::X => Self::O,
+        }
+    }
+}
+
 impl MiniBoard {
     fn new() -> Self {
         Self {
@@ -89,6 +98,7 @@ impl MiniBoard {
 struct BigBoard {
     boards: [[MiniBoard; SIZE]; SIZE],
     playable: Option<Pos>, //If None, can play anywhere
+    turn: Tile,
 }
 
 impl Pos {
@@ -105,10 +115,11 @@ impl BigBoard {
         Self {
             boards: [[MiniBoard::new(); SIZE]; SIZE],
             playable: None,
+            turn: Tile::X, //Default first player
         }
     }
 
-    fn play(&mut self, board_pos: Pos, tile_pos: Pos, tile: Tile) -> Result<BoardState> {
+    fn play(&mut self, board_pos: Pos, tile_pos: Pos) -> Result<BoardState> {
         if let Some(valid) = self.playable {
             if board_pos != valid {
                 return Err(anyhow!("Invalid Move (Board Unplayable)"));
@@ -116,16 +127,19 @@ impl BigBoard {
         }
 
         let Pos(board_x, board_y) = board_pos;
-        let new_state = self.boards[board_x][board_y].play(tile_pos, tile)?;
+        let new_state = self.boards[board_x][board_y].play(tile_pos, self.turn)?;
 
+        //Update playable board
         let Pos(tile_x, tile_y) = tile_pos;
         self.playable = match self.boards[tile_x][tile_y].state {
             BoardState::Play => Some(tile_pos),
             _ => None,
         };
 
+        self.turn = self.turn.next();
+
         Ok(match new_state {
-            BoardState::Win(_) => self.check_state(tile),
+            BoardState::Win(_) => self.check_state(self.turn),
             BoardState::Tie => {
                 if self.is_playable() {
                     BoardState::Play
